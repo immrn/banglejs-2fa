@@ -1,0 +1,25 @@
+{
+  "name": "Two Factor Authentication with Smartwatch",
+  "description" : "Chrome Extension to enable your Smartwatch as the second factor of Two Factor Authentication.",
+  "version": "1.0",
+  "permissions": [ "activeTab", "scripting" ],
+  "host_permissions": [ "*://*/*" ],
+  "manifest_version": 3,
+  "content_scripts": [
+    {
+      "all_frames": true,
+      "js": ["content_script.js"],
+      "matches": ["*://*/*"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "images/icon.png",
+    "32": "images/icon32.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
