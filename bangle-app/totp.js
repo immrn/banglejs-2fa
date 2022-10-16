@@ -161,6 +161,7 @@ function bytesToHexStr(bytes) {
     return hexStr;
 }
 
+// TODO: my TOTP isn't matching TOTPs of other generators (like Authy or https://totp.danhersam.com/), my TOTP-Algorithm is compliant to RFC-6238, so my input processing must be wrong!
 mykey = "12345678901234567890";
 mykey = b32ToBytes("JBSWY3DPEHPK3PXP");
 console.log("mykey b32 to bytes:", mykey);
