@@ -20,6 +20,36 @@ function hex2a(hex) {
     return str;
 }
 
+function intToHexStr(int) {
+    var hex = int.toString(16);
+    return (hex.length % 2) == 0 ? hex : "0" + hex;
+}
+
+// -----------------------------------------------
+
+b32Set = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','2','3','4','5','6','7'];
+
+function b32ToBytes(b32text) {
+    function index(c, array) {
+        for (var i = 0; i < array.length; i++)
+            if (c == array[i])
+                return i;
+    }
+
+    b32bytes = [];
+    for (var i = 0; i < b32text.length; i++) {
+        b32bytes.push(index(b32text[i], b32Set));
+    }
+    return b32bytes;
+}
+
+// -----------------------------------------------
+// var BASE32 = require('base32.min.js');
+// var encoded = BASE32.encode("some data blabla");
+// var decoded = BASE32.decode(encoded);
+// console.log("encoded:", encoded);
+// console.log("decoded:", decoded);
+
 // -----------------------------------------------
 
 // from https://github.com/kazuho/sha1.min.js
@@ -59,8 +89,8 @@ JSSHAsha1 = require("sha1.js");
 
 // setTimeout(doJSSHAmac, 2000);
 
-function JSSHAhmac(JSSHAkey, JSSHAcounter) {
-    var myhmac = new JSSHAsha1("SHA-1", "HEX", {hmacKey: {value: JSSHAkey, format: "HEX" },});
+function JSSHAhmac(JSSHAkey, JSSHAcounter, keyT, counterT) {
+    var myhmac = new JSSHAsha1("SHA-1", counterT, {hmacKey: {value: JSSHAkey, format: keyT },});
     myhmac.update(JSSHAcounter);
     return myhmac.getHash("HEX");
 }
@@ -84,8 +114,7 @@ function truncat(hmac_bytes, returnDigits){
 
 function truncat_withBytes(hmac_bytes, returnDigits){
     const offset =  hmac_bytes[19] & 0xf;
-    console.log("hmac_bytes[19] =", hmac_bytes[19]);
-    console.log("\toffset:", offset);
+    console.log("hmac_bytes[19] =", hmac_bytes[19], "=> offset =", offset);
     const bin_code = ((hmac_bytes[offset]  & 0x7f) << 24)
        | ((hmac_bytes[offset+1] & 0xff) << 16)
        | ((hmac_bytes[offset+2] & 0xff) <<  8)
@@ -97,8 +126,8 @@ function truncat_withBytes(hmac_bytes, returnDigits){
     return otp;
 }
 
-function genHOTP(key, counter, returnDigits){
-    var hmac = JSSHAhmac(key, counter);
+function genHOTP(key, counter, returnDigits, keyT, counterT){
+    var hmac = JSSHAhmac(key, counter, keyT, counterT);
     console.log("HMAC: ", hmac);
     var hmacBytes = hexStrToBytes(hmac);
     console.log("hmacBytes: ", hmacBytes);
@@ -106,21 +135,21 @@ function genHOTP(key, counter, returnDigits){
     return hotp;
 }
 
-function genTOTP(key, returnDigits, timeStep, t0){
-    // TODO it's false
+function genTOTP(key, returnDigits, timeStep, t0, keyT, counterT){
     var counter = Math.floor((Date.now() / 1000 - t0) / timeStep);
-    counter = String(counter);
-    counter = "00";
     console.log("Time counter =", counter);
-    var totp = genHOTP(key, counter, returnDigits);
+    counter = intToHexStr(counter);
+    // TODO vllt muss der couter in HexForm mit nullen vorne gepadded werden so dass er auf die 8 byte kommt?
+    counter = hexStrToBytes(counter);
+    var totp = genHOTP(key, counter, returnDigits, keyT, counterT="UINT8ARRAY");
     console.log("TOTP: ", totp);
+    console.log("----------------");
     return totp;
 }
 
 mykey = "12345678901234567890";
-mykey = "JBSWY3DPEHPK3PXP";
-mykey = "3132333435363738393031323334353637383930"
-setTimeout(genTOTP, 3000, mykey, 6, 30, 0);
-setInterval(genTOTP, 30000, mykey, 6, 30, 0);
+mykey = b32ToBytes("JBSWY3DPEHPK3PXP");
+// mykey = "3132333435363738393031323334353637383930"
+setTimeout(genTOTP, 3000, mykey, 6, timeStep=30, t0=0, keyT="UINT8ARRAY");
+setInterval(genTOTP, 30000, mykey, 6, timeStep=30, t0=0, keyT="UINT8ARRAY");
 // setTimeout(genHOTP, 3000, mykey, counter, 6);
-
