@@ -1,4 +1,8 @@
 // --------------- Layout ---------------
+let Layout = require("Layout");
+
+const size0 = "10%";
+const size05 = "11%";
 const size1 = "13%";
 const size2 = "14%";
 const size3 = "23%";
@@ -6,20 +10,12 @@ const col1 = "#4A4A4A"; // grey
 const col2 = "#590396"; // violette
 const col3 = "#50FF9F"; // green, background color
 
+// TOTP must be updated each 30 seconds -> store the ID of setInterval() for clearInterval(ID):
+var intervalId = undefined;
+
 var accList = []; // list of TOTP accounts
-// Dict for the menu showing the accounts
-// function getAccDict() {
-//   accDict = {};
-//   key = accList[i].label;
-//   func = getTOTPlayout(accList[i]);
-//   for (var i = 0; i < accList.length; i++) {
-//     key in accDict ? accDict[key].push(func);
-//   }
-// }
 
-let Layout = require("Layout");
-
-// Class storing label and secret to generate a TOTP:
+// Class for TOTP-Accounts, stores label and secret to generate a TOTP:
 class TOTPacc {
   constructor(label, secret) {
     this.label = label;
@@ -40,17 +36,15 @@ class TOTPacc {
   }
 }
 
-// When showing a TOTP we need to update the TOTP on the screen every 30 seconds, thus we need to setInterval() which returns an ID. Use this ID to clear the Interval later, when the TOTP Screen will be closed. 
-var intervalId = undefined;
-
-var Acc1 = new TOTPacc("github", "3132333435363738393031323334353637383930");
-var Acc2 = new TOTPacc("stackoverflow", "35810503158083");
+// TODO: dont hard code accounts, store them in a file (like .json):
+let Acc1 = new TOTPacc("github", "3132333435363738393031323334353637383930");
+let Acc2 = new TOTPacc("stackoverflow", "35810503158083");
 console.log("acc list:", accList.length);
 for (var i = 0; i < accList.length; i++) {
   console.log(accList[i].label, accList[i].secret)
 }
 
-// Menu for totp-account overview. Account means just a label, the secret key (user can't see it) and the current TOTP:
+// Menu for totp-account overview:
 var menu = function () { 
   var dict = { "" : {
       "title" : "-- My TOTPs --"
@@ -69,18 +63,20 @@ var menu = function () {
       };
     })()
   }
+  dict["+add account+"] = () => {drawAddAccScreen1();}
   console.log(dict);
   return dict;
 }
 
 // The screen displaying the TOTP:
 function getTOTPlayout(label, totp){
+  // TODO add a delete button plus callback, to delete an acc (use accList.splice() to delete elements dynamically):
   var layout = new Layout(
     {type:"h", c:[
       {type:"v", fillx:1, valign:-1, c: [
         {type:"txt", font:size2, label: label, col:col2},
         {type:"txt", font:size3, label: totp, col:col2, pad:10, id:"totp"},
-        {type:"btn", font:"6x8:2", label:"Exit", cb: l=>exitTOTPlayout()},
+        {type:"btn", font:"6x8:2", label:"Exit", cb: l=>exitTOTPscreen()},
       ]},
     ]}
   );
@@ -93,14 +89,16 @@ function drawLayout(layout) {
   layout.render()
 }
 
+// draw the TOTP screen and update the TOTP each 30 seconds:
 function drawAndUpdateTOTP(totpacc) {
   // Just draw the layout:
   var counter = Math.floor((Date.now() / 1000) / 30);
   var layout = getTOTPlayout(totpacc.label, totpacc.getTOTP(counter));
   drawLayout(layout);
-  // Pre-calculate the next counter:
+  // Pre-calculate the next counter and layout:
   var nextcounter = Math.floor((Date.now() / 1000) / 30);
   if (nextcounter = counter) nextcounter++;
+  // TODO draw the TOTP screen again when the clock hits 0 or 30 seconds and start the Interval:
   // Start interval (interval = 30 sec):
   intervalId = setInterval( function () {
     layout = getTOTPlayout(totpacc.label, totpacc.getTOTP(nextcounter));
@@ -109,9 +107,68 @@ function drawAndUpdateTOTP(totpacc) {
   }, 3000)
 }
 
-function exitTOTPlayout() {
+// Exit TOTP screen and go back to the menu:
+function exitTOTPscreen() {
   clearInterval(intervalId);
   intervalId = undefined;
+  E.showMenu(menu());
+}
+
+// Screen to create a new account: when BT connection isn't established already
+function drawAddAccScreen1() {
+  var layout = new Layout(
+    {type:"v", filly:1, c: [
+      {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
+      {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: "- follow the exten-", col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: "  sion's instruction", col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '- select "Bangle.js', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  e79b"', col:col2, pad:1},
+      // {type:"txt", halign:-1, font:size1, label: "Label:", col:col2, pad:3},
+      // {type:"txt", halign:-1, font:size1, label: "Secret:", col:col2, pad:3},
+      {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>exitAddAccScreen()},
+    ]}
+  );
+  drawLayout(layout);
+}
+// Screen to create a new account: waiting for browser extension to send data
+function drawAddAccScreen2() {
+  var layout = new Layout(
+    {type:"v", filly:1, c: [
+      {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
+      {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
+      {type:"txt", width:0, height:0, font:size0, label: "Connection", col:col2, pad:1},
+      {type:"txt", width:0, height:0, font:size0, label: "established!", col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
+      {type:"txt", width:0, height:0, font:size0, label: "Receiving data ...", col:col2, pad:1},
+      {type:"txt", width:0, height:0, font:size0, label: " ", col:col2, pad:1},
+      {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>exitAddAccScreen()}
+    ]}
+  );
+  drawLayout(layout);
+}
+
+
+// Screen to create a new account: let user check received data
+function drawAddAccScreen3() {
+  var layout = new Layout(
+    {type:"v", filly:1, c: [
+      {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: 'Label:', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  TODO label string', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: 'Secret:', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  TODO secret string', col:col2, pad:1},
+      {type:"h", c: [
+        // {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>exitAddAccScreen()},
+        {type:"btn", font:"6x8:2", label:"Apply", cb: l=>exitAddAccScreen()}
+      ]}
+    ]}
+  );
+  drawLayout(layout);
+}
+
+function exitAddAccScreen() {
   E.showMenu(menu());
 }
 
