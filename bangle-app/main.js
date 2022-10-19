@@ -1,6 +1,196 @@
-// --------------- Layout ---------------
-let Layout = require("Layout");
+// -------------------------------------- //
+// -------------- States ---------------- //
+// -------------------------------------- //
 
+const STATE_MAIN_MENU = 0;
+const STATE_TOTP_SCREEN = 1;
+const STATE_NEW_ACC_START = 2;
+const STATE_NEW_ACC_RECV = 3;
+const STATE_NEW_ACC_CONFIRM = 4;
+const STATE_ERROR_AND_RESUME = 5;
+
+
+// -------------------------------------- //
+// -------------- Imports --------------- //
+// -------------------------------------- //
+
+let Layout = require("Layout");
+const TOTP = require("totp.js").generate;
+
+
+// -------------------------------------- //
+// -------------- Bluetooth ------------- //
+// -------------------------------------- //
+
+// function BTstuff(){
+//   NRF.requestDevice({ filters: [{ services: ['heart_rate'] }] })
+//     .then(device =>  {
+//       console.log("Trying to connect...");
+//       device.gatt.connect();
+//       console.log("GATT connected!");
+//     })
+//     .then(server => {
+//       console.log("Trying to get service...");
+//       server.getPrimaryService('heart_rate');
+//       console.log("Got the service!");
+//     })
+//     .then(service => {
+//       console.log("Trying to get characteristic!");
+//       service.getCharacteristic('heart_rate_measurement');
+//       console.log("Got the characteristic!");
+//     })
+//     .then(characteristic => {
+//       console.log("Trying to start notifications...");
+//       characteristic.startNotifications();
+//       console.log("Started notifictaions!");
+//     })
+//     .then(characteristic => {
+//       characteristic.addEventListener('characteristicvaluechanged',
+//                                       handleCharacteristicValueChanged);
+//       console.log('Started event listener!');
+//     })
+//     .catch(error => { console.error(error);
+//   });
+// }
+
+
+// NRF.on('connect', function(addr) {
+//   BTcentralAddr=addr;
+//   NRF.requestDevice(addr).then(device => {
+//     device.on('gattserverdisconnected', function(reason) {
+//       term.print(`\r\nDISCONNECTED (${reason})\r\n`);
+//       uart = undefined;
+//       device = undefined;
+//       setTimeout(showConnectMenu, 1000);
+//     });
+//     require('ble_uart').connect(device).then(uart => {
+//       uart.on('data', function(data) {  })
+//     })
+//   });
+
+// })
+
+NRF.setServices({
+  "0e3096df-3f24-4eb8-91c0-16b333d451ad" : { // GATT Service
+    "0e3096e0-3f24-4eb8-91c0-16b333d451ad" : { // GATT Characteristic RX
+      value : "Hello", // optional
+      maxLen : 8, // optional (otherwise is length of initial value)
+      broadcast : false, // optional, default is false
+      readable : false,   // optional, default is false
+      writable : true,   // optional, default is false
+      notify : true,   // optional, default is false
+      indicate : true,   // optional, default is false
+      description: "RX TOTP Info",  // optional, default is null,
+      security: { // optional - see NRF.setSecurity
+        read: { // optional
+          encrypted: false, // optional, default is false
+          mitm: false, // optional, default is false
+          lesc: false, // optional, default is false
+          signed: false // optional, default is false
+        },
+        write: { // optional
+          encrypted: false, // optional, default is false
+          mitm: false, // optional, default is false
+          lesc: false, // optional, default is false
+          signed: false // optional, default is false
+        }
+      },
+      onWrite : function(evt) { // optional
+        console.log("Got ", evt.data); // an ArrayBuffer
+      },
+      onWriteDesc : function(evt) { // optional - called when the 'cccd' descriptor is written
+        // for example this is called when notifications are requested by the client:
+        console.log("Notifications enabled = ", evt.data[0]&1);
+      }
+    }
+    // more characteristics allowed
+  }
+  // more services allowed
+})
+
+var BTcentralAddr = undefined;
+
+
+// -------------------------------------- //
+// ----------- State machine ------------ //
+// -------------------------------------- //
+
+function enterState(state) {
+  switch(state) {
+    case STATE_MAIN_MENU:
+      console.log("----- Main Menu -----");
+      E.showMenu(menu());
+      printAccounts();
+      break;
+    case STATE_TOTP_SCREEN:
+      console.log("----- TOTP Screen -----");
+      doStateTOTPScreen(arguments[1]); // arg must be the totp acc
+      break;
+    case STATE_NEW_ACC_START:
+      console.log("----- New Acc Start -----");
+      doStateNewAccStart();
+      break;
+    case STATE_NEW_ACC_RECV: 
+      console.log("----- New Acc Receive -----");
+      doStateNewAccRecv();
+      break;
+    case STATE_NEW_ACC_CONFIRM:
+      console.log("----- New Acc Confirm -----");
+      doStateNewAccConfirm();
+      break;
+    case STATE_ERROR_AND_RESUME:
+      console.log("----- ERROR -----");
+      console.log(arguments[1]);
+      showTextScreen(arguments[1]);
+      sleep(2000);
+      enterState(STATE_MAIN_MENU);
+      break;
+    default:
+      console.log("----- ERROR -----");
+      showTextScreen("Error: First argument of enterState() is not valid!");
+      sleep(2000);
+      enterState(STATE_MAIN_MENU);
+  }
+}
+
+
+// -------------------------------------- //
+// ----------- TOTP Accounts ------------ //
+// -------------------------------------- //
+
+console.log("test: ", TOTP("3132333435363738393031323334353637383930", "HEX", 1, 6));
+
+// TOTP must be updated each 30 seconds -> store the ID of setInterval() for clearInterval(ID):
+var intervalId = undefined;
+var accounts = []; // list of TOTP accounts
+
+// A TOTP-Account stores a label, and a secret to generate a TOTP:
+class TOTPacc {
+  constructor(label, secret) {
+    this.label = label;
+    this.secret = secret;
+    accounts.push(this);
+  }
+
+  getTOTP(counter) { // counter means the time counter
+    return TOTP(key=this.secret, keyT="HEX", counter=counter, returnDigits=6);
+  }
+}
+
+function printAccounts() {
+  var i = 1;
+  for (acc of accounts) { console.log(i++, acc.label, "\t", acc.secret); }
+}
+
+// TODO: dont hard code accounts, store them in a file (like .json):
+let Acc1 = new TOTPacc("github", "3132333435363738393031323334353637383930");
+let Acc2 = new TOTPacc("stackoverflow", "35810503158083");
+
+// -------------------------------------- //
+// ---------- Screens/Layouts ----------- //
+// -------------------------------------- //
+
+// Constants:
 const size0 = "10%";
 const size05 = "11%";
 const size1 = "13%";
@@ -10,67 +200,42 @@ const col1 = "#4A4A4A"; // grey
 const col2 = "#590396"; // violette
 const col3 = "#50FF9F"; // green, background color
 
-// TOTP must be updated each 30 seconds -> store the ID of setInterval() for clearInterval(ID):
-var intervalId = undefined;
-
-var accList = []; // list of TOTP accounts
-
-// Class for TOTP-Accounts, stores label and secret to generate a TOTP:
-class TOTPacc {
-  constructor(label, secret) {
-    this.label = label;
-    this.secret = secret;
-    accList.push(this);
-  }
-
-  // counter means the time counter:
-  getTOTP(counter) {
-    // TODO: delete this stuff and call the genTOTP function from totp.js
-    console.log("counter:", counter);
-    counter = counter.toString();
-    if (counter.length > 6) {
-      var diff = counter.length - 6;
-      counter = counter.substr(diff,6);
-    }
-    return counter;
-  }
-}
-
-// TODO: dont hard code accounts, store them in a file (like .json):
-let Acc1 = new TOTPacc("github", "3132333435363738393031323334353637383930");
-let Acc2 = new TOTPacc("stackoverflow", "35810503158083");
-console.log("acc list:", accList.length);
-for (var i = 0; i < accList.length; i++) {
-  console.log(accList[i].label, accList[i].secret)
-}
-
-// Menu for totp-account overview:
+// Main menu, overview for the totp-accounts:
 var menu = function () { 
-  var dict = { "" : {
-      "title" : "-- My TOTPs --"
-    },
-  };
-
-  for (var i = 0; i < accList.length; i++) {
+  var dict = { "" : { "title" : "-- My TOTPs --" } };
+  for (acc of accounts) {
     ( function(){
-      console.log("i =", i);
-      const acc = accList[i];
-      const label = acc.label;
-      console.log("label:", label);
-      dict[label] = () => { 
-        console.log("building totp layout"); 
-        drawAndUpdateTOTP(acc);
-      };
+      dict[acc.label] = () => { enterState(STATE_TOTP_SCREEN, acc); };
     })()
   }
-  dict["+add account+"] = () => {drawAddAccScreen1();}
-  console.log(dict);
+  dict["+add account+"] = () => {enterState(STATE_NEW_ACC_START);}
   return dict;
 }
 
-// The screen displaying the TOTP:
+// Just show a text on the screen:
+function showTextScreen(text) {
+  // var layout = new Layout(
+  //   {type:"v", filly:1, c: [
+  //     {type:"txt", width:0, height:0, font:size0, label: text, col:col2, pad:0},
+  //   ]}
+  // );
+  // g.setBgColor(col3);
+  // g.clear();
+  // layout.render();
+  g.clear();
+  g.drawString(text, 0, 0);
+  Bangle.setLCDPower(1);
+}
+
+function drawLayout(layout) {
+  g.setBgColor(col3);
+  g.clear();
+  layout.render()
+}
+
+// The screen displaying the Service + TOTP:
 function getTOTPlayout(label, totp){
-  // TODO add a delete button plus callback, to delete an acc (use accList.splice() to delete elements dynamically):
+  // TODO add a delete button plus callback, to delete an acc (use accounts.splice() to delete elements dynamically):
   var layout = new Layout(
     {type:"h", c:[
       {type:"v", fillx:1, valign:-1, c: [
@@ -83,18 +248,18 @@ function getTOTPlayout(label, totp){
   return layout;
 }
 
-function drawLayout(layout) {
-  g.setBgColor(col3);
-  g.clear();
-  layout.render()
-}
-
 // draw the TOTP screen and update the TOTP each 30 seconds:
-function drawAndUpdateTOTP(totpacc) {
-  // Just draw the layout:
-  var counter = Math.floor((Date.now() / 1000) / 30);
-  var layout = getTOTPlayout(totpacc.label, totpacc.getTOTP(counter));
+function doStateTOTPScreen(totpacc) {
+  // Just draw the layout without TOTP because calculation needs some time:
+  layout = getTOTPlayout(totpacc.label, "...");
   drawLayout(layout);
+  
+  var counter = Math.floor((Date.now() / 1000) / 30);
+  // Set timeout, otherwise we won't see the TOTP screen, we've just drawn:
+  setTimeout(function() {
+    layout = getTOTPlayout(totpacc.label, totpacc.getTOTP(counter));
+    drawLayout(layout);
+  }, 1);
   // Pre-calculate the next counter and layout:
   var nextcounter = Math.floor((Date.now() / 1000) / 30);
   if (nextcounter = counter) nextcounter++;
@@ -104,18 +269,18 @@ function drawAndUpdateTOTP(totpacc) {
     layout = getTOTPlayout(totpacc.label, totpacc.getTOTP(nextcounter));
     drawLayout(layout);
     nextcounter++;
-  }, 3000)
+  }, 30000)
 }
 
 // Exit TOTP screen and go back to the menu:
 function exitTOTPscreen() {
   clearInterval(intervalId);
   intervalId = undefined;
-  E.showMenu(menu());
+  enterState(STATE_MAIN_MENU);
 }
 
 // Screen to create a new account: when BT connection isn't established already
-function drawAddAccScreen1() {
+function doStateNewAccStart() {
   var layout = new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
@@ -127,13 +292,14 @@ function drawAddAccScreen1() {
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  e79b"', col:col2, pad:1},
       // {type:"txt", halign:-1, font:size1, label: "Label:", col:col2, pad:3},
       // {type:"txt", halign:-1, font:size1, label: "Secret:", col:col2, pad:3},
-      {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>exitAddAccScreen()},
+      {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>enterState(STATE_MAIN_MENU)},
     ]}
   );
   drawLayout(layout);
 }
+
 // Screen to create a new account: waiting for browser extension to send data
-function drawAddAccScreen2() {
+function doStateNewAccRecv() {
   var layout = new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
@@ -143,15 +309,14 @@ function drawAddAccScreen2() {
       {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
       {type:"txt", width:0, height:0, font:size0, label: "Receiving data ...", col:col2, pad:1},
       {type:"txt", width:0, height:0, font:size0, label: " ", col:col2, pad:1},
-      {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>exitAddAccScreen()}
+      {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>enterState(STATE_MAIN_MENU)}
     ]}
   );
   drawLayout(layout);
 }
 
-
 // Screen to create a new account: let user check received data
-function drawAddAccScreen3() {
+function doStateNewAccConfirm() {
   var layout = new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
@@ -161,18 +326,19 @@ function drawAddAccScreen3() {
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  TODO secret string', col:col2, pad:1},
       {type:"h", c: [
         // {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>exitAddAccScreen()},
-        {type:"btn", font:"6x8:2", label:"Apply", cb: l=>exitAddAccScreen()}
+        {type:"btn", font:"6x8:2", label:"Apply", cb: l=>enterState(STATE_MAIN_MENU)}
       ]}
     ]}
   );
   drawLayout(layout);
 }
 
-function exitAddAccScreen() {
-  E.showMenu(menu());
-}
 
-E.showMenu(menu());
+// -------------------------------------- //
+// ------------ Start the app ---------------
+// -------------------------------------- //
+
+enterState(STATE_MAIN_MENU);
 
 // ------------------------------------------
 
@@ -246,21 +412,3 @@ E.showMenu(menu());
 // DrawScreen.TOTP();
 
 // Bangle.on('swipe', (direction) => {onSwipe(direction);});
-
-
-// --------------- BLUETOOTH STUFF ---------------
-
-// var gatt;
-// NRF.requestDevice({ filters: [{ name: 'Puck.js abcd' }] }).then(function(device) {
-//   console.log("found device");
-//   return device.gatt.connect();
-// }).then(function(g) {
-//   gatt = g;
-//   console.log("connected");
-//   return gatt.startBonding();
-// }).then(function() {
-//   console.log("bonded", gatt.getSecurityStatus());
-//   gatt.disconnect();
-// }).catch(function(e) {
-//   console.log("ERROR",e);
-// });

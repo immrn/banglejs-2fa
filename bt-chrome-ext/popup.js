@@ -1,27 +1,60 @@
-const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
+let buttonSetup2FA = document.getElementById("start2FA");
+let inputLabel = document.getElementById("labelId");
+let inputSecret = document.getElementById("secretId");
 
-let start2FA = document.getElementById("start2FA");
+buttonSetup2FA.addEventListener("click", async () => {
+  // Check if input are valid:
+  if (inputLabel.value == "") {
+    alert('Please state a name at the "Label" field!');
+    inputLabel.placeholder = "Enter a name!";
+    return;
+  }
+  if (inputSecret.value == "") {
+    alert('Please state the secret/key at the "Secret" field!')
+    inputSecret.placeholder = "Enter the secret/key!";
+    return;
+  }
 
-start2FA.addEventListener("click", async () => {
+  // alert("Name: " + inputLabel.value + ", Secret: " + inputSecret.value);
+
   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    function: send2FAinfo,
+    function: connectToBangle,
   });
 });
 
-function send2FAinfo() {
+function handleCharacteristicValueChanged(event){
+  const value = event.target.value;
+  console.log('Received ' + value);
+}
+
+function connectToBangle() {
+  var SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  var RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
   navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }]
+    filters: [{ services: [SERVICE_UUID] }]
   })
   .then(device => {
-  // Human-readable name of the device.
-  console.log(device.name);
+    // Human-readable name of the device.
+    console.log(device.name);
 
-  // Attempts to connect to remote GATT Server.
-  return device.gatt.connect();
+    // Attempts to connect to remote GATT Server.
+    return device.gatt.connect();
   })
-  .then(server => { /* … */ })
+  .then(server => {
+    console.log("got server!");
+    return server.getPrimaryService(SERVICE_UUID);
+  })
+  .then(service => {
+    return service.getCharacteristic(RX_CHARACTERISTIC_UUID);
+  })
+  .then(characteristic => {
+    const value = Uint8Array.of(23);
+    console.log(value);
+    characteristic.writeValue(value);
+    console.log("wrote something");
+  })
   .catch(error => { console.error(error); });
 }
