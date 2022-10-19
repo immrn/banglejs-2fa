@@ -31,10 +31,13 @@ function handleCharacteristicValueChanged(event){
 }
 
 function connectToBangle() {
-  var SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-  var RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+  var SERVICE_UUID = '7f9c91ef-6e8d-4d8b-9138-c2649ee9eb2d';
+  var RX_CHARACTERISTIC_UUID = '27d6e20d-5b5f-4994-9ede-3cccb9725bbf';
   navigator.bluetooth.requestDevice({
-    filters: [{ services: [SERVICE_UUID] }]
+    filters: [
+      { services: [SERVICE_UUID] },
+      { namePrefix: "Bangle" }
+    ]
   })
   .then(device => {
     // Human-readable name of the device.
@@ -51,7 +54,8 @@ function connectToBangle() {
     return service.getCharacteristic(RX_CHARACTERISTIC_UUID);
   })
   .then(characteristic => {
-    const value = Uint8Array.of(23);
+    // const value = Uint8Array.of(23);
+    const value = "Hell";
     console.log(value);
     characteristic.writeValue(value);
     console.log("wrote something");

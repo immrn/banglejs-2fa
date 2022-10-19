@@ -7,7 +7,7 @@ const STATE_TOTP_SCREEN = 1;
 const STATE_NEW_ACC_START = 2;
 const STATE_NEW_ACC_RECV = 3;
 const STATE_NEW_ACC_CONFIRM = 4;
-const STATE_ERROR_AND_RESUME = 5;
+const STATE_TEXT_OUT_AND_RESUME = 5;
 
 
 // -------------------------------------- //
@@ -70,45 +70,51 @@ const TOTP = require("totp.js").generate;
 
 // })
 
-NRF.setServices({
-  "0e3096df-3f24-4eb8-91c0-16b333d451ad" : { // GATT Service
-    "0e3096e0-3f24-4eb8-91c0-16b333d451ad" : { // GATT Characteristic RX
-      value : "Hello", // optional
-      maxLen : 8, // optional (otherwise is length of initial value)
-      broadcast : false, // optional, default is false
-      readable : false,   // optional, default is false
-      writable : true,   // optional, default is false
-      notify : true,   // optional, default is false
-      indicate : true,   // optional, default is false
-      description: "RX TOTP Info",  // optional, default is null,
-      security: { // optional - see NRF.setSecurity
-        read: { // optional
-          encrypted: false, // optional, default is false
-          mitm: false, // optional, default is false
-          lesc: false, // optional, default is false
-          signed: false // optional, default is false
-        },
-        write: { // optional
-          encrypted: false, // optional, default is false
-          mitm: false, // optional, default is false
-          lesc: false, // optional, default is false
-          signed: false // optional, default is false
-        }
-      },
-      onWrite : function(evt) { // optional
-        console.log("Got ", evt.data); // an ArrayBuffer
-      },
-      onWriteDesc : function(evt) { // optional - called when the 'cccd' descriptor is written
-        // for example this is called when notifications are requested by the client:
-        console.log("Notifications enabled = ", evt.data[0]&1);
-      }
-    }
-    // more characteristics allowed
-  }
-  // more services allowed
-})
 
-var BTcentralAddr = undefined;
+
+function advertiseGATT() {
+  NRF.setServices({
+    '7f9c91ef-6e8d-4d8b-9138-c2649ee9eb2d' : { // GATT Service
+      '27d6e20d-5b5f-4994-9ede-3cccb9725bbf' : { // GATT Characteristic RX
+        value : "Hello", // optional
+        maxLen : 5, // optional (otherwise is length of initial value)
+        broadcast : false, // optional, default is false
+        readable : false,   // optional, default is false
+        writable : true,   // optional, default is false
+        notify : true,   // optional, default is false
+        indicate : true,   // optional, default is false
+        description: null,  // optional, default is null,
+        security: { // optional - see NRF.setSecurity
+          read: { // optional
+            encrypted: false, // optional, default is false
+            mitm: false, // optional, default is false
+            lesc: false, // optional, default is false
+            signed: false // optional, default is false
+          },
+          write: { // optional
+            encrypted: false, // optional, default is false
+            mitm: false, // optional, default is false
+            lesc: false, // optional, default is false
+            signed: false // optional, default is false
+          }
+        },
+        onWrite : function(evt) { // optional
+          console.log("Got ", evt.data); // an ArrayBuffer
+          enterState(STATE_TEXT_OUT_AND_RESUME, evt.data)
+        },
+        onWriteDesc : function(evt) { // optional - called when the 'cccd' descriptor is written
+          // for example this is called when notifications are requested by the client:
+          console.log("Notifications enabled = ", evt.data[0]&1);
+        }
+      }
+      // more characteristics allowed
+    }
+    // more services allowed
+  },{
+    advertise: ['7f9c91ef-6e8d-4d8b-9138-c2649ee9eb2d'],
+    uart: false
+  });
+}
 
 
 // -------------------------------------- //
@@ -122,34 +128,32 @@ function enterState(state) {
       E.showMenu(menu());
       printAccounts();
       break;
-    case STATE_TOTP_SCREEN:
+    case STATE_TOTP_SCREEN: // additional arg: totp acc
       console.log("----- TOTP Screen -----");
-      doStateTOTPScreen(arguments[1]); // arg must be the totp acc
+      doStateTOTPScreen(arguments[1]); 
       break;
     case STATE_NEW_ACC_START:
       console.log("----- New Acc Start -----");
-      doStateNewAccStart();
+      advertiseGATT();
+      drawLayout( getLayoutNewAccStart() );
       break;
     case STATE_NEW_ACC_RECV: 
       console.log("----- New Acc Receive -----");
-      doStateNewAccRecv();
+      drawLayout( getLayoutNewAccRecv() );
       break;
     case STATE_NEW_ACC_CONFIRM:
       console.log("----- New Acc Confirm -----");
-      doStateNewAccConfirm();
+      drawLayout( getLayoutNewAccConfirm() );
       break;
-    case STATE_ERROR_AND_RESUME:
-      console.log("----- ERROR -----");
+    case STATE_TEXT_OUT_AND_RESUME: // additional arg: str
+      console.log("----- Text Output -----");
       console.log(arguments[1]);
       showTextScreen(arguments[1]);
-      sleep(2000);
-      enterState(STATE_MAIN_MENU);
       break;
     default:
       console.log("----- ERROR -----");
       showTextScreen("Error: First argument of enterState() is not valid!");
-      sleep(2000);
-      enterState(STATE_MAIN_MENU);
+      setTimeout(enterState, 3000, STATE_MAIN_MENU);
   }
 }
 
@@ -214,16 +218,12 @@ var menu = function () {
 
 // Just show a text on the screen:
 function showTextScreen(text) {
-  // var layout = new Layout(
-  //   {type:"v", filly:1, c: [
-  //     {type:"txt", width:0, height:0, font:size0, label: text, col:col2, pad:0},
-  //   ]}
-  // );
-  // g.setBgColor(col3);
-  // g.clear();
-  // layout.render();
   g.clear();
-  g.drawString(text, 0, 0);
+  text = g.wrapString(text, g.getWidth());
+  lines = text.length;
+  text = text.join("\n");
+  console.log(text);
+  g.drawString(text, 1, lines * 8);
   Bangle.setLCDPower(1);
 }
 
@@ -280,8 +280,8 @@ function exitTOTPscreen() {
 }
 
 // Screen to create a new account: when BT connection isn't established already
-function doStateNewAccStart() {
-  var layout = new Layout(
+function getLayoutNewAccStart() {
+  return new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
       {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
@@ -295,12 +295,11 @@ function doStateNewAccStart() {
       {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>enterState(STATE_MAIN_MENU)},
     ]}
   );
-  drawLayout(layout);
 }
 
 // Screen to create a new account: waiting for browser extension to send data
-function doStateNewAccRecv() {
-  var layout = new Layout(
+function getLayoutNewAccRecv() {
+  return new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
       {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
@@ -312,12 +311,11 @@ function doStateNewAccRecv() {
       {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>enterState(STATE_MAIN_MENU)}
     ]}
   );
-  drawLayout(layout);
 }
 
 // Screen to create a new account: let user check received data
-function doStateNewAccConfirm() {
-  var layout = new Layout(
+function getLayoutNewAccConfirm() {
+  return new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: 'Label:', col:col2, pad:1},
@@ -330,7 +328,6 @@ function doStateNewAccConfirm() {
       ]}
     ]}
   );
-  drawLayout(layout);
 }
 
 
