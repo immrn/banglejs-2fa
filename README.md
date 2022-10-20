@@ -16,7 +16,7 @@ This project uses a Bangle.js App and a Chrome extension to setup up two factor 
 3. Use the **Upload** button (the folder) to upload `bangle-app/main.js`, choose your Bangle.js device.
 
 ### Chrome Extension
-1. Open the Chrome browser.
+1. Open the Chrome browser and enter following address: `chrome://extensions/`
 2. Use the **Load unpacked** button and upload directory `the bt-chrome-ext/`. Maybe you have to restart your browser before executing the following step.
 3. Press the **Extensions** button of chrome (top right corner, the puzzle symbol) and pin the extension.
 

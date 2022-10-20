@@ -16,6 +16,8 @@ const STATE_TEXT_OUT_AND_RESUME = 5;
 
 let Layout = require("Layout");
 const TOTP = require("totp.js").generate;
+const UTF8toIntArray = require("my-convert.js").UTF8toIntArray;
+const intArrayToUTF8 = require("my-convert.js").intArrayToUTF8;
 
 
 // -------------------------------------- //
@@ -70,6 +72,9 @@ const TOTP = require("totp.js").generate;
 
 // })
 
+var receivedMsg = "";
+const endOfMsg = ";";
+const separator = ","
 
 
 function advertiseGATT() {
@@ -77,7 +82,7 @@ function advertiseGATT() {
     '7f9c91ef-6e8d-4d8b-9138-c2649ee9eb2d' : { // GATT Service
       '27d6e20d-5b5f-4994-9ede-3cccb9725bbf' : { // GATT Characteristic RX
         value : "Hello", // optional
-        maxLen : 5, // optional (otherwise is length of initial value)
+        maxLen : 8, // optional (otherwise is length of initial value)
         broadcast : false, // optional, default is false
         readable : false,   // optional, default is false
         writable : true,   // optional, default is false
@@ -99,8 +104,13 @@ function advertiseGATT() {
           }
         },
         onWrite : function(evt) { // optional
-          console.log("Got ", evt.data); // an ArrayBuffer
-          enterState(STATE_TEXT_OUT_AND_RESUME, evt.data)
+          // evt.data is an ArrayBuffer!
+          const msg = intArrayToUTF8(evt.data);
+          receivedMsg += msg;
+          if (msg[msg.length-1] == endOfMsg) {
+            receivedMsg.replace(separator,' ');
+            enterState(STATE_TEXT_OUT_AND_RESUME, receivedMsg);
+          }
         },
         onWriteDesc : function(evt) { // optional - called when the 'cccd' descriptor is written
           // for example this is called when notifications are requested by the client:
@@ -117,6 +127,7 @@ function advertiseGATT() {
 }
 
 
+
 // -------------------------------------- //
 // ----------- State machine ------------ //
 // -------------------------------------- //
@@ -125,6 +136,7 @@ function enterState(state) {
   switch(state) {
     case STATE_MAIN_MENU:
       console.log("----- Main Menu -----");
+      receivedMsg = ""; // reset received BT message
       E.showMenu(menu());
       printAccounts();
       break;
@@ -147,7 +159,6 @@ function enterState(state) {
       break;
     case STATE_TEXT_OUT_AND_RESUME: // additional arg: str
       console.log("----- Text Output -----");
-      console.log(arguments[1]);
       showTextScreen(arguments[1]);
       break;
     default:
@@ -216,6 +227,12 @@ var menu = function () {
   return dict;
 }
 
+function drawLayout(layout) {
+  g.setBgColor(col3);
+  g.clear();
+  layout.render()
+}
+
 // Just show a text on the screen:
 function showTextScreen(text) {
   g.clear();
@@ -223,14 +240,12 @@ function showTextScreen(text) {
   lines = text.length;
   text = text.join("\n");
   console.log(text);
-  g.drawString(text, 1, lines * 8);
+  // g.drawString(text, 10, 50);
+  const layout = new Layout(
+    {type:"txt", font:"8%", label:text}
+  );
+  drawLayout(layout);
   Bangle.setLCDPower(1);
-}
-
-function drawLayout(layout) {
-  g.setBgColor(col3);
-  g.clear();
-  layout.render()
 }
 
 // The screen displaying the Service + TOTP:
