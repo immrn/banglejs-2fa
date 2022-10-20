@@ -4,16 +4,16 @@ let inputSecret = document.getElementById("secretId");
 
 
 buttonSetup2FA.addEventListener("click", async () => {
+  console.log("hi");
+
   const alertLabel = 'Please state a valid name at the "Label" field!';
   const alertSecret = 'Please state the valid secret/key at the "Secret" field!';
   const alertLabelUnvalid = 'Label is unvalid! Only use characters and digits.';
   const alertSecretUnvalid = 'Secret/Key is unvalid!';
-  
-  console.log("hi");
 
   // Check if inputs are valid:
   const unvalidChars = [',',';'];
-  if ((inputLabel.value == "")) {
+  if (inputLabel.value == "") {
     alert(alertLabel);
     inputLabel.placeholder = "Enter a name!";
     return;
@@ -26,11 +26,12 @@ buttonSetup2FA.addEventListener("click", async () => {
   for (var i = 0; i < unvalidChars.length; i++) {
     if (inputLabel.value.includes(unvalidChars[i])) {
       alert(alertLabelUnvalid);
+      return;
     }
     else if (inputSecret.value.includes(unvalidChars[i])) {
       alert(alertSecretUnvalid);
+      return;
     }
-    return;
   }
 
   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -48,8 +49,6 @@ function connectToBangle(label, secret) {
   var SERVICE_UUID = '7f9c91ef-6e8d-4d8b-9138-c2649ee9eb2d';
   var RX_CHARACTERISTIC_UUID = '27d6e20d-5b5f-4994-9ede-3cccb9725bbf';
 
-  var msgToSend = "";
-
   function UTF8toIntArray(str){
     let buffer = new ArrayBuffer(str.length);
     var intArray = new Uint8Array(buffer);
@@ -58,7 +57,6 @@ function connectToBangle(label, secret) {
     }
     return intArray;
   }
-
 
   navigator.bluetooth.requestDevice({
     filters: [
@@ -81,7 +79,7 @@ function connectToBangle(label, secret) {
     return service.getCharacteristic(RX_CHARACTERISTIC_UUID);
   })
   .then(characteristic => {
-    label = "Gand,lf;"; // TODO rm
+    label = "BT,1234;"; // TODO rm
     console.log("label:", label);
     // split into 8 byte strings because RX Characteristic maxLen = 8
     const msgArray = label.match(/.{1,8}/g); 

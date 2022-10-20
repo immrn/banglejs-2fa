@@ -21,6 +21,38 @@ const intArrayToUTF8 = require("my-convert.js").intArrayToUTF8;
 
 
 // -------------------------------------- //
+// ----------- TOTP Accounts ------------ //
+// -------------------------------------- //
+
+
+// TOTP must be updated each 30 seconds -> store the ID of setInterval() for clearInterval(ID):
+var intervalId = undefined;
+var accounts = []; // list of TOTP accounts
+
+// A TOTP-Account stores a label, and a secret to generate a TOTP:
+class TOTPacc {
+  constructor(label, secret) {
+    this.label = label;
+    this.secret = secret;
+    accounts.push(this);
+  }
+
+  getTOTP(counter) { // counter means the time counter
+    return TOTP(key=this.secret, keyT="HEX", counter=counter, returnDigits=6);
+  }
+
+  remove() {
+    accounts.splice(accounts.indexOf(this), 1);
+  }
+}
+
+function printAccounts() {
+  var i = 1;
+  for (var acc of accounts) { console.log(i++, acc.label, "\t", acc.secret); }
+}
+
+
+// -------------------------------------- //
 // -------------- Bluetooth ------------- //
 // -------------------------------------- //
 
@@ -107,9 +139,12 @@ function advertiseGATT() {
           // evt.data is an ArrayBuffer!
           const msg = intArrayToUTF8(evt.data);
           receivedMsg += msg;
+
           if (msg[msg.length-1] == endOfMsg) {
-            receivedMsg.replace(separator,' ');
-            enterState(STATE_TEXT_OUT_AND_RESUME, receivedMsg);
+            receivedMsg = receivedMsg.slice(0,-1);
+            const info = receivedMsg.split(separator); // label and secret
+            var acc = new TOTPacc(info[0], info[1]); //gen new Acc
+            enterState(STATE_NEW_ACC_CONFIRM, acc);
           }
         },
         onWriteDesc : function(evt) { // optional - called when the 'cccd' descriptor is written
@@ -125,7 +160,6 @@ function advertiseGATT() {
     uart: false
   });
 }
-
 
 
 // -------------------------------------- //
@@ -153,9 +187,9 @@ function enterState(state) {
       console.log("----- New Acc Receive -----");
       drawLayout( getLayoutNewAccRecv() );
       break;
-    case STATE_NEW_ACC_CONFIRM:
+    case STATE_NEW_ACC_CONFIRM: // additional arg: totp acc
       console.log("----- New Acc Confirm -----");
-      drawLayout( getLayoutNewAccConfirm() );
+      drawLayout( getLayoutNewAccConfirm(arguments[1]) );
       break;
     case STATE_TEXT_OUT_AND_RESUME: // additional arg: str
       console.log("----- Text Output -----");
@@ -168,38 +202,6 @@ function enterState(state) {
   }
 }
 
-
-// -------------------------------------- //
-// ----------- TOTP Accounts ------------ //
-// -------------------------------------- //
-
-console.log("test: ", TOTP("3132333435363738393031323334353637383930", "HEX", 1, 6));
-
-// TOTP must be updated each 30 seconds -> store the ID of setInterval() for clearInterval(ID):
-var intervalId = undefined;
-var accounts = []; // list of TOTP accounts
-
-// A TOTP-Account stores a label, and a secret to generate a TOTP:
-class TOTPacc {
-  constructor(label, secret) {
-    this.label = label;
-    this.secret = secret;
-    accounts.push(this);
-  }
-
-  getTOTP(counter) { // counter means the time counter
-    return TOTP(key=this.secret, keyT="HEX", counter=counter, returnDigits=6);
-  }
-}
-
-function printAccounts() {
-  var i = 1;
-  for (acc of accounts) { console.log(i++, acc.label, "\t", acc.secret); }
-}
-
-// TODO: dont hard code accounts, store them in a file (like .json):
-let Acc1 = new TOTPacc("github", "3132333435363738393031323334353637383930");
-let Acc2 = new TOTPacc("stackoverflow", "35810503158083");
 
 // -------------------------------------- //
 // ---------- Screens/Layouts ----------- //
@@ -218,7 +220,7 @@ const col3 = "#50FF9F"; // green, background color
 // Main menu, overview for the totp-accounts:
 var menu = function () { 
   var dict = { "" : { "title" : "-- My TOTPs --" } };
-  for (acc of accounts) {
+  for (var acc of accounts) {
     ( function(){
       dict[acc.label] = () => { enterState(STATE_TOTP_SCREEN, acc); };
     })()
@@ -329,16 +331,19 @@ function getLayoutNewAccRecv() {
 }
 
 // Screen to create a new account: let user check received data
-function getLayoutNewAccConfirm() {
+function getLayoutNewAccConfirm(totpacc) {
   return new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: 'Label:', col:col2, pad:1},
-      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  TODO label string', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: totpacc.label, col:col2, pad:1},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: 'Secret:', col:col2, pad:1},
-      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  TODO secret string', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: totpacc.secret, col:col2, pad:1},
       {type:"h", c: [
-        // {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>exitAddAccScreen()},
+        {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>{
+          acc.remove();
+          enterState(STATE_MAIN_MENU);
+        }},
         {type:"btn", font:"6x8:2", label:"Apply", cb: l=>enterState(STATE_MAIN_MENU)}
       ]}
     ]}
@@ -350,7 +355,14 @@ function getLayoutNewAccConfirm() {
 // ------------ Start the app ---------------
 // -------------------------------------- //
 
-enterState(STATE_MAIN_MENU);
+// TODO: dont hard code accounts, store them in a file (like .json):
+let Acc1 = new TOTPacc("github", "3132333435363738393031323334353637383930");
+let Acc2 = new TOTPacc("stackoverflow", "35810503158083");
+
+setTimeout(enterState, 1000, STATE_MAIN_MENU);
+
+// If u wanna check correctness to RFC:
+// console.log("test: ", TOTP("3132333435363738393031323334353637383930", "HEX", 1, 6));
 
 // ------------------------------------------
 
