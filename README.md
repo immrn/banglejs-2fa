@@ -2,9 +2,11 @@
 
 **------- WORK IN PROGESS -------**
 
-BangleJs app for [two factor authentication](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/about-two-factor-authentication)
+[Bangle Js 2](https://banglejs.com/) app for [two factor authentication](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/about-two-factor-authentication)
 
-This project uses a Bangle.js App and a Chrome extension to setup up two factor authentication (2FA) on your Bangle.js device and let it generate Time-based One-time Passwords (TOTP).
+This project contains a Bangle.js app and a Chrome extension to setup up two factor authentication (2FA) on your Bangle.js device and let it generate Time-based One-time Passwords (TOTP).
+
+This Project isn't finished, there are several [bugs](#known-bugs) and things you could solve better. It's just a start!
 
 ## Setup
 ### Bangle App
@@ -39,3 +41,9 @@ A account just saves the secret key (for 2FA) and a label (so you can distinguis
 ## How to setup two factor authentication
 1. In your browser open a website (e.g. Github) where you want to setup 2FA for an account of yours. Not every host supports 2FA. Mostly you find this option in your account settings (e.g. [Github 2FA Setup](https://github.com/settings/two_factor_authentication/setup/intro)).
 2. Before starting the setup of two factor authentication (2FA), be aware that **you could brick your account** at this host. When the website states the secret key, you should **note the key** on paper or something and if stated, **note the recovery codes** too.
+
+## Known Bugs
+
+- not possible to create a totp account that has the same label like one that exists already
+- you must disconnect from the espruino web IDE when when using bluetooth features (creating a new totp account)
+- chrome extension: bad checks for validity of the entered strings for label and secret; e.g. input a secret that has odd length

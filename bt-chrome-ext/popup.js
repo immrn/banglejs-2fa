@@ -79,12 +79,12 @@ function connectToBangle(label, secret) {
     return service.getCharacteristic(RX_CHARACTERISTIC_UUID);
   })
   .then(characteristic => {
-    label = "BT,1234;"; // TODO rm
+    label = "B2,1234;"; // TODO rm
     console.log("label:", label);
     // split into 8 byte strings because RX Characteristic maxLen = 8
     const msgArray = label.match(/.{1,8}/g); 
     const hex = UTF8toIntArray(msgArray[0]);
-    
+
     characteristic.writeValueWithResponse(hex);
     
     console.log("Sent Label!");
