@@ -39,7 +39,7 @@ buttonSetup2FA.addEventListener("click", async () => {
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
     function: connectToBangle,
-    args: [inputLabel, inputSecret]
+    args: [inputLabel.value, inputSecret.value]
   });
 });
 
@@ -79,16 +79,15 @@ function connectToBangle(label, secret) {
     return service.getCharacteristic(RX_CHARACTERISTIC_UUID);
   })
   .then(characteristic => {
-    label = "B2,1234;"; // TODO rm
-    console.log("label:", label);
-    // split into 8 byte strings because RX Characteristic maxLen = 8
-    const msgArray = label.match(/.{1,8}/g); 
+    // split into 70 byte strings because RX Characteristic maxLen = 70
+    var msg = label + ',' + secret + ';';
+    console.log("msg:", msg);
+    // TODO just don't send data once when it bigger than 70 bytes
+    var msgArray = msg.match(/.{1,70}/g); 
     const hex = UTF8toIntArray(msgArray[0]);
+    console.log("hex:",hex);
 
     characteristic.writeValueWithResponse(hex);
-    
-    console.log("Sent Label!");
-
   })
   .catch(error => { console.error(error); });
 }

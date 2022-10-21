@@ -90,7 +90,7 @@ function advertiseGATT() {
     '7f9c91ef-6e8d-4d8b-9138-c2649ee9eb2d' : { // GATT Service
       '27d6e20d-5b5f-4994-9ede-3cccb9725bbf' : { // GATT Characteristic RX
         value : "Hello", // optional
-        maxLen : 8, // optional (otherwise is length of initial value)
+        maxLen : 70, // optional (otherwise is length of initial value)
         broadcast : false, // optional, default is false
         readable : false,   // optional, default is false
         writable : true,   // optional, default is false
@@ -117,6 +117,7 @@ function advertiseGATT() {
           receivedMsg += msg;
 
           if (msg[msg.length-1] == endOfMsg) {
+            NRF.sleep();
             receivedMsg = receivedMsg.slice(0,-1);
             const info = receivedMsg.split(separator); // label and secret
             var acc = new TOTPacc(info[0], info[1]); //gen new Acc
@@ -147,7 +148,7 @@ function enterState(state) {
     case STATE_MAIN_MENU:
       console.log("----- Main Menu -----");
       receivedMsg = ""; // reset received BT message
-      // NRF.sleep(); // stop BT GATT Advertising, TODO uncomment
+      NRF.sleep(); // stop BT GATT Advertising, comment this line when debugging
       E.showMenu(menu());
       printAccounts();
       Bangle.setLCDPower(1);
@@ -257,17 +258,11 @@ function getTOTPlayout(totpacc, totp){
 }
 
 // draw the TOTP screen and update the TOTP each 30 seconds:
-function doStateTOTPScreen(totpacc) {
-  // Just draw the layout without TOTP because calculation needs some time:
-  layout = getTOTPlayout(totpacc, "...");
-  drawLayout(layout);
-  
+function doStateTOTPScreen(totpacc) {  
   var counter = Math.floor((Date.now() / 1000) / 30);
   // Set timeout, otherwise we won't see the TOTP screen, we've just drawn:
-  setTimeout(function() {
-    layout = getTOTPlayout(totpacc, totpacc.getTOTP(counter));
-    drawLayout(layout);
-  }, 1);
+  layout = getTOTPlayout(totpacc, totpacc.getTOTP(counter));
+  drawLayout(layout);
   // Pre-calculate the next counter and layout:
   var nextcounter = Math.floor((Date.now() / 1000) / 30);
   if (nextcounter = counter) nextcounter++;
@@ -298,25 +293,7 @@ function getLayoutNewAccStart() {
       {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: '- select "Bangle.js', col:col2, pad:1},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  e79b"', col:col2, pad:1},
-      // {type:"txt", halign:-1, font:size1, label: "Label:", col:col2, pad:3},
-      // {type:"txt", halign:-1, font:size1, label: "Secret:", col:col2, pad:3},
       {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>enterState(STATE_MAIN_MENU)},
-    ]}
-  );
-}
-
-// Screen to create a new account: waiting for browser extension to send data
-function getLayoutNewAccRecv() {
-  return new Layout(
-    {type:"v", filly:1, c: [
-      {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
-      {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
-      {type:"txt", width:0, height:0, font:size0, label: "Connection", col:col2, pad:1},
-      {type:"txt", width:0, height:0, font:size0, label: "established!", col:col2, pad:1},
-      {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
-      {type:"txt", width:0, height:0, font:size0, label: "Receiving data ...", col:col2, pad:1},
-      {type:"txt", width:0, height:0, font:size0, label: " ", col:col2, pad:1},
-      {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>enterState(STATE_MAIN_MENU)}
     ]}
   );
 }
@@ -348,90 +325,7 @@ function getLayoutNewAccConfirm(totpacc) {
 
 Bangle.setLCDTimeout(30);
 
-
-// TODO: dont hard code accounts, store them in a file (like .json):
-// new TOTPacc("github", "3132333435363738393031323334353637383930");
-// new TOTPacc("stackoverflow", "35810503158083");
-// new TOTPacc("Erik", "12341234");
-// new TOTPacc("Erik2", "12341234");
-// new TOTPacc("Erik3", "12341234");
-// new TOTPacc("Erik4", "12341234");
-// new TOTPacc("Erik5", "12341234");
-
 setTimeout(enterState, 1000, STATE_MAIN_MENU);
 
 // If u wanna check correctness to RFC:
 // console.log("test: ", TOTP("3132333435363738393031323334353637383930", "HEX", 1, 6));
-
-// ------------------------------------------
-
-// // The screen displaying the TOTP:
-// var layoutScreenTOTP = new Layout(
-//   {type:"h", c:[
-//     {type:"v", fillx:1, valign:-1, c: [
-//       {type:"h", c:[
-//         {type:"txt", font:size1, label:"Login attempt\n to",
-//           col:col1, height:60}
-//       ]},
-//       {type:"txt", font:size2, label:"github.com", col:col2},
-//       {type:"txt", font:size3, label:"421337", col:col2, pad:10}
-//     ]}
-//   ]}
-// );
-
-// // The screen displaying additional info about the login attempt:
-// var layoutScreenTOTPinfo = new Layout(
-//   {type:"h", c:[
-//     {type:"v", fillx:1, valign:-1, c: [
-//       {type:"h", c:[
-//         {type:"txt", font:size1, label:"At",
-//           col:col1, height:30}
-//         ]},
-//       {type:"txt", font:size3, label:"10:09", col:col2, pad:5},
-//       {type:"txt", font:"10%", label:"Mozilla Firefox\nSaxony, Germany", col:col2, pad:5}
-//     ]}
-//   ]}
-// );
-
-// // The dots at the bottom edge:
-// function drawScreenIndex(screen_num){
-//   if (screen_num == 1){
-//     g.fillCircle(74,150,6);
-//     g.drawCircle(102,150,6);
-//     g.drawCircle(102,150,5);
-//   }
-//   else if (screen_num == 2){
-//     g.drawCircle(74,150,6);
-//     g.drawCircle(74,150,5);
-//     g.fillCircle(102,150,6);
-//   }
-// }
-
-// // Dictionairy of functions to draw screens:
-// const DrawScreen = {
-//   TOTP: function() {
-//     g.setBgColor(col3);
-//     g.clear();
-//     layoutScreenTOTP.render();
-//     drawScreenIndex(1);},
-//   TOTPinfo: function() {
-//     g.setBgColor(col3);
-//     g.clear();
-//     layoutScreenTOTPinfo.render();
-//     drawScreenIndex(2);
-//   } 
-// };
-
-// function onSwipe(dir){
-//   if (dir == -1 /*left*/){
-//     DrawScreen.TOTPinfo();
-//   }
-//   else if (dir == 1 /*right*/){
-//     DrawScreen.TOTP();
-//   }
-// }
-
-// // Draw first screen:
-// DrawScreen.TOTP();
-
-// Bangle.on('swipe', (direction) => {onSwipe(direction);});
