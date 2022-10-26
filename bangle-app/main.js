@@ -18,7 +18,6 @@ const STATE_DELETE_ACC_DIALOG = 6;
 let Layout = require("Layout");
 let B32 = require("base32.min.js"); // from https://github.com/emn178/hi-base32
 const TOTP = require("totp.js").generate;
-const UTF8toIntArray = require("my-convert.js").UTF8toIntArray;
 const intArrayToUTF8 = require("my-convert.js").intArrayToUTF8;
 
 
@@ -154,7 +153,7 @@ function enterState(state) {
     case STATE_MAIN_MENU:
       console.log("----- Main Menu -----");
       receivedMsg = ""; // reset received BT message
-      //NRF.sleep(); // stop BT GATT Advertising, comment this line when debugging
+      NRF.sleep(); // stop BT GATT Advertising, comment this line when debugging
       E.showMenu(menu());
       printAccounts();
       Bangle.setLCDPower(1);
@@ -348,17 +347,18 @@ function getLayoutNewAccStart() {
 }
 
 // Screen to create a new account: let user check received data
-function getLayoutNewAccConfirm(totpacc) {
+function getLayoutNewAccConfirm(acc) {
+  const secret = B32.encode(acc.secret);
   return new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: 'Label:', col:col2, pad:1},
-      {type:"txt", halign:-1, width:0, height:0, font:size0, label: totpacc.label, col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: acc.label, col:col2, pad:1},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: 'Secret:', col:col2, pad:1},
-      {type:"txt", halign:-1, width:0, height:0, font:size0, label: totpacc.secret, col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:"9%", label: secret, col:col2, pad:1},
       {type:"h", c: [
         {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>{
-          totpacc.remove();
+          acc.remove();
           enterState(STATE_MAIN_MENU);
         }},
         {type:"btn", font:"6x8:2", label:"Apply", cb: l=>enterState(STATE_MAIN_MENU)}

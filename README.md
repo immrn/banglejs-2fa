@@ -13,8 +13,9 @@ This Project isn't finished, there are several [bugs](#known-bugs) and things yo
 1. Open the [Espruino Web IDE](https://www.espruino.com/ide/#) in a browser that is capable of Web-Bluetooh (like Chrome).
 2. Use the **Storage** button (the 4 disks) to upload following files:
     - `bangle-app/totp.js`
-    - `bangle-app/sha1.js`
-    - `bangle-app/base32.min.js`
+    - `bangle-app/my-convert.js`
+    - `bangle-app/sha1.js` (source: https://github.com/Caligatio/jsSHA)
+    - `bangle-app/base32.min.js` (source: https://github.com/emn178/hi-base32)
 
 3. Use the **Upload** button (the folder) to upload `bangle-app/main.js`, choose your Bangle.js device.
 
