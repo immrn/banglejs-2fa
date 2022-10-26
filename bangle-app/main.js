@@ -15,6 +15,7 @@ const STATE_TEXT_OUT_AND_RESUME = 5;
 // -------------------------------------- //
 
 let Layout = require("Layout");
+let B32 = require("base32.min.js"); // from https://github.com/emn178/hi-base32
 const TOTP = require("totp.js").generate;
 const UTF8toIntArray = require("my-convert.js").UTF8toIntArray;
 const intArrayToUTF8 = require("my-convert.js").intArrayToUTF8;
@@ -27,27 +28,31 @@ const intArrayToUTF8 = require("my-convert.js").intArrayToUTF8;
 
 // TOTP must be updated each 30 seconds -> store the ID of setInterval() for clearInterval(ID):
 var intervalId = undefined;
-var accounts = []; // list of TOTP accounts
+var timeoutId = undefined;
+
+// list of TOTP accounts
+var accounts = [];
 
 // A TOTP-Account stores a label, and a secret to generate a TOTP:
 class TOTPacc {
-  constructor(label, secret, readFromFile) { // str, str, bool [optional]
-    const readFromFile1 = readFromFile || false;
+  constructor(label, secret, isLoadedFromFile) { // str, str, bool [optional]
+    const isLoaded = isLoadedFromFile || false;
     this.label = label;
     this.secret = secret;
     // add to save file if it's new:
-    if(!readFromFile1)  { // isLoadedFromFile = false
+    if(!isLoaded)  { // case: store the new TOTP acc to the save file
       const dict = require("Storage").readJSON(FILENAME);
       // TODO check if label already exists and slighlty change label name (check again after that)
       dict[this.label] = this.secret;
       require("Storage").writeJSON(FILENAME, dict);
     }
-    // add to array:
+    // convert secret key to Uint8Array and add totp acc to array:
+    this.secret = B32.decode.asBytes(this.secret);
     accounts.push(this);
   }
 
   getTOTP(counter) { // counter means the time counter
-    return TOTP(key=this.secret, keyT="HEX", counter=counter, returnDigits=6);
+    return TOTP(key=this.secret, keyT="UINT8ARRAY", counter=counter, returnDigits=6);
   }
 
   remove() {
@@ -258,27 +263,45 @@ function getTOTPlayout(totpacc, totp){
 }
 
 // draw the TOTP screen and update the TOTP each 30 seconds:
-function doStateTOTPScreen(totpacc) {  
-  var counter = Math.floor((Date.now() / 1000) / 30);
-  // Set timeout, otherwise we won't see the TOTP screen, we've just drawn:
-  layout = getTOTPlayout(totpacc, totpacc.getTOTP(counter));
-  drawLayout(layout);
-  // Pre-calculate the next counter and layout:
-  var nextcounter = Math.floor((Date.now() / 1000) / 30);
-  if (nextcounter = counter) nextcounter++;
-  // TODO draw the TOTP screen again when the clock hits 0 or 30 seconds and start the Interval:
-  // Start interval (interval = 30 sec):
-  intervalId = setInterval( function () {
-    layout = getTOTPlayout(totpacc, totpacc.getTOTP(nextcounter));
+function doStateTOTPScreen(totpacc) {
+  // get the current time counter and the gap to the next timestep
+  const step = 30;
+  const stepMs = 30000;
+  const seconds = Date.now() / 1000;
+  var counter = Math.floor(seconds / step);
+  // gap to next 30 second timestamp of the clock
+  var gapToNext = (step - Math.floor(seconds % step)) * 1000;
+
+  // generate TOTP, render TOTP screen, return time needed
+  function runTOTPcycle() {
+    var startTime = Date.now();
+    var layout = getTOTPlayout(totpacc, totpacc.getTOTP(counter));
     drawLayout(layout);
-    nextcounter++;
-  }, 30000)
+    counter++;
+    // return render/calc time
+    return (Date.now() - startTime);
+  }
+
+  // draw the current TOTP
+  var cycleTime = runTOTPcycle();
+  var timeout = gapToNext - 2 * cycleTime;
+  // Wait for timeout milliseconds until starting the interval and running the next cycle
+  timeoutId = setTimeout(function(){
+    intervalId = setInterval(function() {
+      var layout = getTOTPlayout(totpacc, totpacc.getTOTP(counter));
+      drawLayout(layout);
+      counter++;
+    }, 30000);
+    runTOTPcycle();
+  }, timeout);
 }
 
 // Exit TOTP screen and go back to the menu:
 function exitTOTPscreen() {
   clearInterval(intervalId);
   intervalId = undefined;
+  clearTimeout(timeoutId);
+  timeoutId = undefined;
   enterState(STATE_MAIN_MENU);
 }
 
@@ -324,8 +347,10 @@ function getLayoutNewAccConfirm(totpacc) {
 // -------------------------------------- //
 
 Bangle.setLCDTimeout(30);
-
 setTimeout(enterState, 1000, STATE_MAIN_MENU);
 
-// If u wanna check correctness to RFC:
+
+
+
+// If u wanna check correctness to the HOTP RFC:
 // console.log("test: ", TOTP("3132333435363738393031323334353637383930", "HEX", 1, 6));

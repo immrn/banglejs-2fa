@@ -14,6 +14,7 @@ This Project isn't finished, there are several [bugs](#known-bugs) and things yo
 2. Use the **Storage** button (the 4 disks) to upload following files:
     - `bangle-app/totp.js`
     - `bangle-app/sha1.js`
+    - `bangle-app/base32.min.js`
 
 3. Use the **Upload** button (the folder) to upload `bangle-app/main.js`, choose your Bangle.js device.
 
