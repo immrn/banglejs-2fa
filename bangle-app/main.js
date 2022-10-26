@@ -8,6 +8,7 @@ const STATE_NEW_ACC_START = 2;
 const STATE_NEW_ACC_RECV = 3;
 const STATE_NEW_ACC_CONFIRM = 4;
 const STATE_TEXT_OUT_AND_RESUME = 5;
+const STATE_DELETE_ACC_DIALOG = 6;
 
 
 // -------------------------------------- //
@@ -153,7 +154,7 @@ function enterState(state) {
     case STATE_MAIN_MENU:
       console.log("----- Main Menu -----");
       receivedMsg = ""; // reset received BT message
-      NRF.sleep(); // stop BT GATT Advertising, comment this line when debugging
+      //NRF.sleep(); // stop BT GATT Advertising, comment this line when debugging
       E.showMenu(menu());
       printAccounts();
       Bangle.setLCDPower(1);
@@ -163,6 +164,10 @@ function enterState(state) {
       doStateTOTPScreen(arguments[1]);
       console.log(arguments[1].label);
       Bangle.setLCDPower(1);
+      break;
+    case STATE_DELETE_ACC_DIALOG: // additional arg: totp acc
+      console.log("----- DELETE ACC -----");
+      drawLayout( getLayoutDeleteAccDialog(arguments[1]) );
       break;
     case STATE_NEW_ACC_START:
       console.log("----- New Acc Start -----");
@@ -244,17 +249,15 @@ function showTextScreen(text) {
 }
 
 // The screen displaying the Service + TOTP:
-function getTOTPlayout(totpacc, totp){
-  // TODO add a delete button plus callback, to delete an acc (use accounts.splice() to delete elements dynamically):
+function getTOTPlayout(acc, totp){
   var layout = new Layout(
     {type:"h", c:[
       {type:"v", fillx:1, valign:-1, c: [
         {type:"btn", halign:1 ,font:"6x8:2", label:"X", cb: l=>exitTOTPscreen()},
-        {type:"txt", font:size2, label: totpacc.label, col:col2},
+        {type:"txt", font:size05, label: acc.label, col:col2},
         {type:"txt", font:size3, label: totp, col:col2, pad:10, id:"totp"},
         {type:"btn", font:"6x8:2", label:"Delete Account", cb: l=>{
-          totpacc.remove();
-          exitTOTPscreen();
+          enterState(STATE_DELETE_ACC_DIALOG, acc);
         }}
       ]},
     ]}
@@ -263,7 +266,7 @@ function getTOTPlayout(totpacc, totp){
 }
 
 // draw the TOTP screen and update the TOTP each 30 seconds:
-function doStateTOTPScreen(totpacc) {
+function doStateTOTPScreen(acc) {
   // get the current time counter and the gap to the next timestep
   const step = 30;
   const stepMs = 30000;
@@ -275,7 +278,7 @@ function doStateTOTPScreen(totpacc) {
   // generate TOTP, render TOTP screen, return time needed
   function runTOTPcycle() {
     var startTime = Date.now();
-    var layout = getTOTPlayout(totpacc, totpacc.getTOTP(counter));
+    var layout = getTOTPlayout(acc, acc.getTOTP(counter));
     drawLayout(layout);
     counter++;
     // return render/calc time
@@ -288,7 +291,7 @@ function doStateTOTPScreen(totpacc) {
   // Wait for timeout milliseconds until starting the interval and running the next cycle
   timeoutId = setTimeout(function(){
     intervalId = setInterval(function() {
-      var layout = getTOTPlayout(totpacc, totpacc.getTOTP(counter));
+      var layout = getTOTPlayout(acc, acc.getTOTP(counter));
       drawLayout(layout);
       counter++;
     }, 30000);
@@ -296,13 +299,35 @@ function doStateTOTPScreen(totpacc) {
   }, timeout);
 }
 
-// Exit TOTP screen and go back to the menu:
-function exitTOTPscreen() {
-  clearInterval(intervalId);
-  intervalId = undefined;
-  clearTimeout(timeoutId);
-  timeoutId = undefined;
-  enterState(STATE_MAIN_MENU);
+function getLayoutDeleteAccDialog(acc) {
+  var layout = new Layout(
+    {type:"v", fillx:1, c: [
+      {type:"txt", font:size0, col:col2, label:"Do you really\nwant to delete\n" + acc.label + "\n?"},
+      {type:"h", c: [
+        {type:"btn", font:"6x8:2", label:"Keep", cb: l=>{
+          resetTimerIds();
+          enterState(STATE_TOTP_SCREEN, acc);
+        }},
+        {type:"btn", font:"6x8:2", label:"Delete", cb: l=>{
+          acc.remove();
+          resetTimerIds();
+          enterState(STATE_MAIN_MENU);
+        }}
+      ]}
+    ]}
+  )
+  return layout;
+}
+
+function resetTimerIds() {
+  if (timeoutId !== undefined) {
+    clearTimeout(timeoutId);
+    timeoutId = undefined;
+  }
+  if (intervalId !== undefined) {
+    clearInterval(intervalId);
+    intervalId = undefined;
+  }
 }
 
 // Screen to create a new account: when BT connection isn't established already
@@ -346,11 +371,9 @@ function getLayoutNewAccConfirm(totpacc) {
 // ------------ Start the app ------------//
 // -------------------------------------- //
 
-Bangle.setLCDTimeout(30);
-setTimeout(enterState, 1000, STATE_MAIN_MENU);
-
-
-
-
 // If u wanna check correctness to the HOTP RFC:
 // console.log("test: ", TOTP("3132333435363738393031323334353637383930", "HEX", 1, 6));
+
+Bangle.setLCDTimeout(30);
+// When entering main menu, bangleJs will disconnect from the web IDE
+setTimeout(enterState, 1000, STATE_MAIN_MENU);
