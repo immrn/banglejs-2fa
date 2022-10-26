@@ -332,6 +332,7 @@ function resetTimerIds() {
 
 // Screen to create a new account: when BT connection isn't established already
 function getLayoutNewAccStart() {
+  const bangleName = NRF.getAddress().substring(12,17).replace(":","");
   return new Layout(
     {type:"v", filly:1, c: [
       {type:"txt", width:0, height:0, font:size1, label: "New Account", col:col2, pad:0},
@@ -339,8 +340,8 @@ function getLayoutNewAccStart() {
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: "- follow the exten-", col:col2, pad:1},
       {type:"txt", halign:-1, width:0, height:0, font:size0, label: "  sion's instruction", col:col2, pad:1},
       {type:"txt", halign:-1, width:0, height:0, font:"4%", label: ' ', col:col2, pad:1},
-      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '- select "Bangle.js', col:col2, pad:1},
-      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  e79b"', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '- select Bangle.js', col:col2, pad:1},
+      {type:"txt", halign:-1, width:0, height:0, font:size0, label: '  ' + bangleName, col:col2, pad:1},
       {type:"btn", font:"6x8:2", label:"Cancel", cb: l=>enterState(STATE_MAIN_MENU)},
     ]}
   );
