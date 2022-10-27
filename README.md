@@ -1,7 +1,5 @@
 # BangleJs 2FA
 
-**------- WORK IN PROGESS -------**
-
 [Bangle Js 2](https://banglejs.com/) app for [two factor authentication](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/about-two-factor-authentication)
 
 This project contains a Bangle.js app and a Chrome extension to setup up two factor authentication (2FA) on your Bangle.js device and let it generate Time-based One-time Passwords (TOTP).
