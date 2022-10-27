@@ -41,29 +41,6 @@ function intToHexStr(int) {
 
 
 // -------------------------------------- //
-// ------------- Base32 ----------------- //
-// -------------------------------------- //
-
-b32Set = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','2','3','4','5','6','7'];
-
-function b32ToBytes(b32text) {
-    function index(c, array) {
-        for (var i = 0; i < array.length; i++) {
-            if (c == array[i]) {
-                return i;
-            }
-        }
-    }
-
-    b32bytes = [];
-    for (var i = 0; i < b32text.length; i++) {
-        b32bytes.push(index(b32text[i], b32Set));
-    }
-    return b32bytes;
-}
-
-
-// -------------------------------------- //
 // ------------- jsSJA LIB -------------- //
 // -------------------------------------- //
 
@@ -79,21 +56,6 @@ function JSSHAhmac(JSSHAkey, keyT, JSSHAcounter, counterT) {
 // -------------------------------------- //
 // ------------- TOTP stuff ------------- //
 // -------------------------------------- //
-
-// function truncat(hmac_bytes, returnDigits){
-//     const offset =  hmac_bytes[19].charCodeAt() & 0xf;
-//     console.log("\toffset:", offset);
-//     console.log("test:", hmac_bytes[19], " = ", parseInt(hmac_bytes[19], 16));
-//     const bin_code = ((hmac_bytes[offset].charCodeAt()  & 0x7f) << 24)
-//        | ((hmac_bytes[offset+1].charCodeAt() & 0xff) << 16)
-//        | ((hmac_bytes[offset+2].charCodeAt() & 0xff) <<  8)
-//        | ((hmac_bytes[offset+3].charCodeAt() & 0xff));
-//     let otp = (bin_code % Math.pow(10, returnDigits)).toString();
-//     while (otp.length < returnDigits) {
-//       otp = '0' + otp;
-//     }
-//     return otp;
-// }
 
 function truncat_withBytes(hmacBytes, returnDigits){
     const offset =  hmacBytes[19] & 0xf;
@@ -129,7 +91,6 @@ exports.generate = function genTOTP(key, keyT, counter, returnDigits){
     return totp;
 }
 
-// TODO: my TOTP isn't matching TOTPs of other generators (like Authy or https://totp.danhersam.com/), my TOTP-Algorithm is compliant to RFC-6238, so my input processing must be wrong!
 
 // -------------------------------------- //
 // ----------- Usage/Examples ----------- //
@@ -149,28 +110,3 @@ exports.generate = function genTOTP(key, keyT, counter, returnDigits){
 // setTimeout(genTOTP, 30000, key=mykey, keyT="TEXT", counter=0,  returnDigits=6);
 // setTimeout(genTOTP, 3000, key=mykey, keyT="HEX", counter=1,  returnDigits=6);
 // setInterval(genTOTP, 30000, key=mykey, keyT="HEX", counter=0,  returnDigits=6);
-
-
-// TODO rm following
-
-// -----------------------------------------------
-// var BASE32 = require('base32.min.js');
-// var encoded = BASE32.encode("some data blabla");
-// var decoded = BASE32.decode(encoded);
-// console.log("encoded:", encoded);
-// console.log("decoded:", decoded);
-
-// -----------------------------------------------
-
-// from https://github.com/kazuho/sha1.min.js
-
-// sha1 = require("sha1.min.js").sha1;
-// console.log(sha1("hallo"));
-
-// ------------------------------------------------
-
-// from https://github.com/h2non/jshashes
-// var Hashes = require("hashes.min.js");
-// var hmac = new Hashes.SHA1().hex_hmac(key, counter);
-
-// --------------------------------------------------

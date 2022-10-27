@@ -6,7 +6,7 @@
 
 This project contains a Bangle.js app and a Chrome extension to setup up two factor authentication (2FA) on your Bangle.js device and let it generate Time-based One-time Passwords (TOTP).
 
-This Project isn't finished, there are several [bugs](#known-bugs) and things you could solve better. It's just a start!
+Be carefully when using this project. There are some [bugs](#known-bugs) and don't rely on this App (ALWAYS CREATE A COPY OF YOUR SECRET KEYS).
 
 ## Setup
 ### Bangle App
@@ -30,7 +30,7 @@ If you don't know how to setup two factor authentication in general, read [here]
 ### Adding a new Account on your Bangle.js device
 A account just saves the secret key (for 2FA) and a label (so you can distinguish multiple accounts).
 
-1. Doing the [setup](#setup), you already started the Bangle.js application.
+1. Following the [setup](#setup), you already started the Bangle.js application.
 2. On your Bangle.js device select **+add account+**
 3. Open the chrome extension and state a label (how you want to name the 2FA account on your Bangle.js app) and the secret key.
 4. Hit **Send to Bangle.js** and follow the instructions on your Bangle.js device.
@@ -47,5 +47,5 @@ A account just saves the secret key (for 2FA) and a label (so you can distinguis
 ## Known Bugs
 
 - not possible to create a totp account that has the same label like one that exists already
-- you must disconnect from the espruino web IDE when when using bluetooth features (creating a new totp account)
+- you must disconnect from the espruino web IDE, when using bluetooth features (creating a new totp account)
 - chrome extension: bad checks for validity of the entered strings for label and secret; e.g. input a secret that has odd length

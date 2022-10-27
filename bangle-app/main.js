@@ -74,7 +74,6 @@ function printAccounts() {
 
 // Load TOTP accounts from save file:
 const FILENAME = "my_totp_accounts.json";
-console.log(require("Storage").readJSON(FILENAME)); // TODO rm
 const DICT = require("Storage").readJSON(FILENAME);
 for (var label in DICT) {
   new TOTPacc(label, DICT[label], true);
